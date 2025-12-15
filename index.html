@@ -1,209 +1,1021 @@
 <!DOCTYPE html>
-<html>
+<html lang="ja">
 <head>
-    <title>Gradient Based Polyline in Leaflet</title>
-    <meta charset="utf-8" />
+    <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Avalanche Slope Analyzer</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <!-- <script src="https://cdn.jsdelivr.net/npm/geographiclib-geodesic@2.0.0/geographiclib-geodesic.min.js"></script> -->
     <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
         body, html {
+            width: 100%;
             height: 100%;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        }
+
+        #map {
+            width: 100%;
+            height: 100%;
+        }
+
+        .control-panel {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+            z-index: 1000;
+            min-width: 250px;
+            transition: all 0.3s ease;
+        }
+
+        .control-panel.compact {
+            padding: 10px;
+            min-width: 180px;
+        }
+
+        /* Header row layout */
+        .header-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 10px;
+        }
+
+        .control-panel.compact .header-row {
+            margin-bottom: 8px;
+        }
+
+        .control-panel h3 {
+            margin: 0;
+            font-size: 14px;
+            color: #333;
+        }
+
+        .control-panel.compact h3 {
+            font-size: 12px;
+        }
+
+        /* Title text switching */
+        .title-compact {
+            display: none;
+        }
+
+        .control-panel.compact .title-full {
+            display: none;
+        }
+
+        .control-panel.compact .title-compact {
+            display: inline;
+        }
+
+        /* Drawing control switching */
+        .drawing-control-compact {
+            display: none;
+        }
+
+        .control-panel.compact .drawing-control-compact {
+            display: block;
+        }
+
+        .control-panel.compact .drawing-control-full {
+            display: none;
+        }
+
+        .drawing-control-compact label {
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+            font-size: 11px;
+            color: #555;
             margin: 0;
         }
-        #mapid {
-            width: 100vw; /* ビューポートの幅全体 */
-            height: 100vh; /* ビューポートの高さ全体 */
-            position: absolute;
+
+        .drawing-control-compact input[type="checkbox"] {
+            margin-right: 4px;
+            cursor: pointer;
         }
-        #gpx-file-input {
-            position: absolute;
-            bottom: 10px;
-            left: 10px;
-            z-index: 1000;
+
+        .control-group {
+            margin-bottom: 12px;
         }
+
+        .control-panel.compact .control-group {
+            margin-bottom: 8px;
+        }
+
+        .control-group label {
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+            font-size: 13px;
+            color: #555;
+        }
+
+        .control-panel.compact .control-group label {
+            font-size: 11px;
+        }
+
+        .control-group input[type="checkbox"] {
+            margin-right: 8px;
+            cursor: pointer;
+        }
+
+        .control-panel.compact .control-group input[type="checkbox"] {
+            margin-right: 6px;
+        }
+
+        .control-group input[type="file"] {
+            font-size: 12px;
+            padding: 5px;
+            width: 100%;
+        }
+
+        .control-panel.compact .control-group input[type="file"] {
+            font-size: 10px;
+            padding: 3px;
+        }
+
+        .legend {
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid #ddd;
+        }
+
+        .control-panel.compact .legend {
+            margin-top: 8px;
+            padding-top: 0;
+            border-top: none;
+        }
+
+        .legend-title {
+            font-size: 12px;
+            font-weight: bold;
+            margin-bottom: 8px;
+            color: #333;
+        }
+
+        .control-panel.compact .legend-title {
+            display: none;
+        }
+
+        /* Full legend items */
+        .legend-items-full {
+            display: block;
+        }
+
+        .control-panel.compact .legend-items-full {
+            display: none;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 5px;
+            font-size: 11px;
+        }
+
+        .legend-color {
+            width: 30px;
+            height: 3px;
+            margin-right: 8px;
+            border-radius: 2px;
+        }
+
+        /* Compact legend items */
+        .legend-items-compact {
+            display: none;
+        }
+
+        .control-panel.compact .legend-items-compact {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .legend-compact-item {
+            font-size: 10px;
+            font-weight: bold;
+        }
+
+        .legend-danger {
+            color: #cc0000;
+        }
+
+        .legend-caution {
+            color: #cccc00;
+        }
+
+        .legend-safe {
+            color: #00aa00;
+        }
+
+        .drawing-mode-active {
+            cursor: crosshair !important;
+        }
+
+        .status-message {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 5px;
+            z-index: 2000;
+            font-size: 13px;
+            display: none;
+        }
+
         .custom-attribution {
-            background: rgba(255, 255, 255, 0.9); /* 半透明の白 */
-            border-radius: 5px; /* 角の丸み */
-            box-shadow: 0 1px 5px rgba(0,0,0,0.4); /* 影の追加 */
-            margin: 10px; /* 余白 */
-            padding: 5px 10px; /* 内側の余白 */
-            font-size: 12px; /* フォントサイズ */
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 5px;
+            box-shadow: 0 1px 5px rgba(0,0,0,0.4);
+            margin: 10px;
+            padding: 5px 10px;
+            font-size: 11px;
         }
     </style>
 </head>
 <body>
-    <div id="mapid"></div>
-    <input type="file" id="gpx-file-input" accept=".gpx">
+    <div id="map"></div>
+    <div class="status-message" id="statusMessage"></div>
+
+    <div class="control-panel">
+        <div class="header-row">
+            <h3>
+                <span class="title-full">GPX雪崩危険斜面解析ツール</span>
+                <span class="title-compact">GPX危険斜面解析</span>
+            </h3>
+            <div class="drawing-control-compact">
+                <label>
+                    <input type="checkbox" id="drawingModeCheckbox2">
+                    <span>斜度測定</span>
+                </label>
+            </div>
+        </div>
+
+        <div class="control-group">
+            <input type="file" id="gpxFileInput" accept=".gpx">
+        </div>
+
+        <div class="control-group drawing-control-full">
+            <label>
+                <input type="checkbox" id="drawingModeCheckbox">
+                <span>線を引いて斜度を測定</span>
+            </label>
+        </div>
+
+        <div class="legend">
+            <div class="legend-title">斜度凡例</div>
+            <div class="legend-items-full">
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #ff0000;"></div>
+                    <span>危険 (30°以上)</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #ffff00;"></div>
+                    <span>注意 (15-30°)</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #00ff00;"></div>
+                    <span>通常 (15°未満)</span>
+                </div>
+            </div>
+            <div class="legend-items-compact">
+                <span class="legend-compact-item legend-danger">30°+</span>
+                <span class="legend-compact-item legend-caution">15-30°</span>
+                <span class="legend-compact-item legend-safe">&lt;15°</span>
+            </div>
+        </div>
+    </div>
+
     <script>
+        // ===== Configuration =====
+        const CONFIG = {
+            defaultCenter: [36.3428, 137.6478],
+            defaultZoom: 6,
+            maxDrawingDistance: 1000, // meters
+            sampleInterval: 25, // meters
+            minZoomForDrawing: 14,
+            maxZoomForDrawing: 18,
+            elevationTileUrl: 'https://cyberjapandata.gsi.go.jp/xyz/dem_png/{z}/{x}/{y}.png',
+            elevationZoom: 13, // Fixed zoom level for elevation tiles
+            interpolateAltitude: true, // Enable bilinear interpolation for smoother gradients
+            gradientThresholds: {
+                danger: 30,    // degrees
+                caution: 15    // degrees
+            }
+        };
+
+        // ===== State Management =====
+        const state = {
+            map: null,
+            drawingMode: false,
+            drawingStartPoint: null,
+            currentDrawing: null,
+            elevationCache: new Map(),
+            drawnLines: []
+        };
+
+        // ===== Utility Functions =====
+
+        /**
+         * Parse URL parameters for initial map view
+         */
         function getMapParams() {
-            var params = new URLSearchParams(window.location.search);
-            var coords = params.get('c') ? params.get('c').split(',') : [36.3428, 137.6478];
-            var zoom = params.get('z') ? parseInt(params.get('z'), 10) : 6;
+            const params = new URLSearchParams(window.location.search);
+            const coords = params.get('c') ? params.get('c').split(',').map(parseFloat) : CONFIG.defaultCenter;
+            const zoom = params.get('z') ? parseInt(params.get('z'), 10) : CONFIG.defaultZoom;
+            return { coords, zoom };
+        }
+
+        /**
+         * Calculate distance between two points using Haversine formula
+         */
+        function calculateDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371e3; // Earth radius in meters
+            const φ1 = lat1 * Math.PI / 180;
+            const φ2 = lat2 * Math.PI / 180;
+            const Δφ = (lat2 - lat1) * Math.PI / 180;
+            const Δλ = (lon2 - lon1) * Math.PI / 180;
+
+            const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+                     Math.cos(φ1) * Math.cos(φ2) *
+                     Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+            return R * c;
+        }
+
+        /**
+         * Calculate bearing between two points
+         */
+        function calculateBearing(lat1, lon1, lat2, lon2) {
+            const φ1 = lat1 * Math.PI / 180;
+            const φ2 = lat2 * Math.PI / 180;
+            const Δλ = (lon2 - lon1) * Math.PI / 180;
+
+            const y = Math.sin(Δλ) * Math.cos(φ2);
+            const x = Math.cos(φ1) * Math.sin(φ2) -
+                     Math.sin(φ1) * Math.cos(φ2) * Math.cos(Δλ);
+            const θ = Math.atan2(y, x);
+
+            return (θ * 180 / Math.PI + 360) % 360;
+        }
+
+        /**
+         * Calculate destination point given distance and bearing
+         */
+        function calculateDestination(lat, lon, distance, bearing) {
+            const R = 6371e3;
+            const δ = distance / R;
+            const θ = bearing * Math.PI / 180;
+            const φ1 = lat * Math.PI / 180;
+            const λ1 = lon * Math.PI / 180;
+
+            const φ2 = Math.asin(Math.sin(φ1) * Math.cos(δ) +
+                                Math.cos(φ1) * Math.sin(δ) * Math.cos(θ));
+            const λ2 = λ1 + Math.atan2(Math.sin(θ) * Math.sin(δ) * Math.cos(φ1),
+                                      Math.cos(δ) - Math.sin(φ1) * Math.sin(φ2));
+
             return {
-                coords: coords.map(function(value) { return parseFloat(value); }),
-                zoom: zoom
+                lat: φ2 * 180 / Math.PI,
+                lon: λ2 * 180 / Math.PI
             };
         }
 
-        var { coords, zoom } = getMapParams();
-        var [lat, lng] = coords;
-        var mymap = L.map('mapid').setView([lat, lng], zoom);
-        // 国土地理院のタイルレイヤーを地図に追加
-        var stdLayer = new L.TileLayer('https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png');
-        var hillshadeLayer = new L.TileLayer('https://cyberjapandata.gsi.go.jp/xyz/hillshademap/{z}/{x}/{y}.png');
-        mymap.addLayer(stdLayer);
+        /**
+         * Get color based on gradient angle
+         */
+        function getGradientColor(gradientDegrees) {
+            const absGradient = Math.abs(gradientDegrees);
+            if (absGradient >= CONFIG.gradientThresholds.danger) return '#ff0000';
+            if (absGradient >= CONFIG.gradientThresholds.caution) return '#ffff00';
+            return '#00ff00';
+        }
 
-        L.control.layers({"地理院地図": stdLayer, "陰影起伏図": hillshadeLayer}).addTo(mymap);
+        /**
+         * Show status message
+         */
+        function showStatus(message, duration = 3000) {
+            const statusEl = document.getElementById('statusMessage');
+            statusEl.textContent = message;
+            statusEl.style.display = 'block';
+            setTimeout(() => {
+                statusEl.style.display = 'none';
+            }, duration);
+        }
 
-        // カスタムattributionコントロールを作成
-        var customAttribution = L.control({position: 'topright'});
-        customAttribution.onAdd = function(map) {
-            var div = L.DomUtil.create('div', 'custom-attribution');
-            div.innerHTML = '<span>地図データ &copy; <a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank">国土地理院</a></span>';
-            return div;
-        };
-        customAttribution.addTo(mymap);
+        // ===== Elevation Data Functions =====
 
-        // GPXファイルをアップロードするための関数
-        function handleFileUpload(file) {
-            var reader = new FileReader();
-            reader.onload = function(e) {
-                var parser = new DOMParser();
-                var doc = parser.parseFromString(e.target.result, "application/xml");
-                var trkpts = doc.querySelectorAll("trkpt");
-                var data = [];
-                trkpts.forEach(function(pt) {
-                    var lat = parseFloat(pt.getAttribute('lat'));
-                    var lon = parseFloat(pt.getAttribute('lon'));
-                    var ele = parseFloat(pt.querySelector('ele').textContent);
-                    data.push([lat, lon, ele]);
-                });
+        /**
+         * Convert lat/lon to tile coordinates at given zoom level
+         */
+        function latLonToTile(lat, lon, zoom) {
+            const n = Math.pow(2, zoom);
+            const x = Math.floor(n * ((lon + 180) / 360));
+            const y = Math.floor(n * (1 - (Math.log(Math.tan(lat * Math.PI / 180) + 1 / Math.cos(lat * Math.PI / 180)) / Math.PI)) / 2);
+            return { x, y, z: zoom };
+        }
 
-                var latlngs = data.map(function(item) {
-                    return [item[0], item[1]]; // latとlonのみを抽出
-                });
+        /**
+         * Convert lat/lon to pixel coordinates within a tile
+         */
+        function latLonToPixel(lat, lon, zoom) {
+            const tile = latLonToTile(lat, lon, zoom);
+            const n = Math.pow(2, zoom);
+            const tileSize = 256;
 
-                if (latlngs.length > 0) {
-                    var polyline = L.polyline(latlngs);
-                    mymap.fitBounds(polyline.getBounds());
+            const worldX = (lon + 180) / 360 * n;
+            const worldY = (1 - Math.log(Math.tan(lat * Math.PI / 180) + 1 / Math.cos(lat * Math.PI / 180)) / Math.PI) / 2 * n;
+
+            const pixelX = (worldX - tile.x) * tileSize;
+            const pixelY = (worldY - tile.y) * tileSize;
+
+            return { tile, pixelX, pixelY };
+        }
+
+        /**
+         * Decode elevation from GSI DEM PNG tile
+         * Reference: https://maps.gsi.go.jp/development/demtile.html
+         */
+        function decodeElevation(r, g, b) {
+            // Check for no-data value (128, 0, 0)
+            if (r === 128 && g === 0 && b === 0) {
+                return null;
+            }
+
+            // GSI DEM encoding: elevation = r * 655.36 + g * 2.56 + b * 0.01
+            const elevation = Math.round(r * 655.36 + g * 2.56 + b * 0.01);
+            return elevation > 0 ? elevation : null;
+        }
+
+        /**
+         * Get elevation value from tile data at specific pixel coordinates
+         */
+        function getElevationFromTile(imageData, pixelX, pixelY, tileSize = 256) {
+            const x = Math.floor(pixelX);
+            const y = Math.floor(pixelY);
+
+            if (x < 0 || x >= tileSize || y < 0 || y >= tileSize) {
+                return null;
+            }
+
+            const idx = (y * tileSize + x) * 4;
+            return decodeElevation(imageData[idx], imageData[idx + 1], imageData[idx + 2]);
+        }
+
+        /**
+         * Bilinear interpolation of elevation data
+         */
+        function interpolateElevation(imageData, pixelX, pixelY, tileSize = 256) {
+            const x = pixelX;
+            const y = pixelY;
+
+            const x0 = Math.floor(x);
+            const x1 = Math.min(x0 + 1, tileSize - 1);
+            const y0 = Math.floor(y);
+            const y1 = Math.min(y0 + 1, tileSize - 1);
+
+            const fx = x - x0;
+            const fy = y - y0;
+
+            // Get elevation values at four corners
+            const e00 = getElevationFromTile(imageData, x0, y0, tileSize);
+            const e10 = getElevationFromTile(imageData, x1, y0, tileSize);
+            const e01 = getElevationFromTile(imageData, x0, y1, tileSize);
+            const e11 = getElevationFromTile(imageData, x1, y1, tileSize);
+
+            // If any corner is null, fall back to nearest neighbor
+            if (e00 === null || e10 === null || e01 === null || e11 === null) {
+                return getElevationFromTile(imageData, Math.floor(pixelX), Math.floor(pixelY), tileSize);
+            }
+
+            // Bilinear interpolation
+            const e0 = e00 * (1 - fx) + e10 * fx;
+            const e1 = e01 * (1 - fx) + e11 * fx;
+            const elevation = e0 * (1 - fy) + e1 * fy;
+
+            return elevation;
+        }
+
+        /**
+         * Get elevation at specific point
+         */
+        async function getElevation(lat, lon, zoom = CONFIG.elevationZoom) {
+            const { tile, pixelX, pixelY } = latLonToPixel(lat, lon, zoom);
+            const cacheKey = `${tile.z}_${tile.x}_${tile.y}`;
+
+            // Check cache
+            if (state.elevationCache.has(cacheKey)) {
+                const imageData = state.elevationCache.get(cacheKey);
+
+                // Check if tile data is null (tile doesn't exist)
+                if (imageData === null) {
+                    return null;
                 }
-                
-                var segments = calculateGradients(data);
 
-                segments.forEach(function(segment) {
-                    var color = getColorForGradient(segment.gradient);
-                    var latlngs = [[segment.start[0], segment.start[1]], [segment.end[0], segment.end[1]]];
-                    L.polyline(latlngs, {color: color}).addTo(mymap);
+                const tileSize = 256;
+
+                // Use interpolation if enabled
+                if (CONFIG.interpolateAltitude) {
+                    return interpolateElevation(imageData, pixelX, pixelY, tileSize);
+                } else {
+                    return getElevationFromTile(imageData, pixelX, pixelY, tileSize);
+                }
+            }
+
+            // Fetch tile
+            try {
+                const url = CONFIG.elevationTileUrl
+                    .replace('{z}', tile.z)
+                    .replace('{x}', tile.x)
+                    .replace('{y}', tile.y);
+
+                const imageData = await fetchElevationTile(url);
+                state.elevationCache.set(cacheKey, imageData);
+
+                // If tile doesn't exist
+                if (imageData === null) {
+                    return null;
+                }
+
+                const tileSize = 256;
+
+                // Use interpolation if enabled
+                if (CONFIG.interpolateAltitude) {
+                    return interpolateElevation(imageData, pixelX, pixelY, tileSize);
+                } else {
+                    return getElevationFromTile(imageData, pixelX, pixelY, tileSize);
+                }
+            } catch (error) {
+                console.error('Failed to fetch elevation:', error);
+                return null;
+            }
+        }
+
+        /**
+         * Fetch elevation tile and extract pixel data
+         */
+        async function fetchElevationTile(url) {
+            try {
+                const response = await fetch(url);
+
+                if (!response.ok) {
+                    return null;
+                }
+
+                const blob = await response.blob();
+
+                return new Promise((resolve) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        const canvas = document.createElement('canvas');
+                        canvas.width = img.width;
+                        canvas.height = img.height;
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0);
+
+                        const imageData = ctx.getImageData(0, 0, img.width, img.height);
+                        resolve(imageData.data);
+                    };
+                    img.onerror = () => resolve(null);
+                    img.src = URL.createObjectURL(blob);
                 });
+            } catch (error) {
+                console.error('Tile fetch error:', error);
+                return null;
+            }
+        }
+
+        // ===== GPX Processing Functions =====
+
+        /**
+         * Parse GPX file and extract track points
+         */
+        function parseGPX(xmlString) {
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(xmlString, 'application/xml');
+            const trkpts = doc.querySelectorAll('trkpt');
+
+            const points = [];
+            trkpts.forEach(pt => {
+                const lat = parseFloat(pt.getAttribute('lat'));
+                const lon = parseFloat(pt.getAttribute('lon'));
+                const eleNode = pt.querySelector('ele');
+                const ele = eleNode ? parseFloat(eleNode.textContent) : 0;
+                points.push({ lat, lon, ele });
+            });
+
+            return points;
+        }
+
+        /**
+         * Calculate gradients for GPX track
+         */
+        function calculateGPXGradients(points) {
+            const segments = [];
+
+            for (let i = 1; i < points.length; i++) {
+                const start = points[i - 1];
+                const end = points[i];
+
+                const distance = calculateDistance(start.lat, start.lon, end.lat, end.lon);
+                const elevationChange = end.ele - start.ele;
+                const gradient = Math.atan(elevationChange / distance) * (180 / Math.PI);
+
+                segments.push({
+                    start: [start.lat, start.lon],
+                    end: [end.lat, end.lon],
+                    gradient
+                });
+            }
+
+            return segments;
+        }
+
+        /**
+         * Render GPX track with gradient colors
+         */
+        function renderGPXTrack(points) {
+            if (points.length === 0) return;
+
+            // Fit bounds
+            const latlngs = points.map(p => [p.lat, p.lon]);
+            const polyline = L.polyline(latlngs);
+            state.map.fitBounds(polyline.getBounds());
+
+            // Calculate and render segments
+            const segments = calculateGPXGradients(points);
+            segments.forEach(segment => {
+                const color = getGradientColor(segment.gradient);
+                L.polyline([segment.start, segment.end], {
+                    color,
+                    weight: 3,
+                    opacity: 0.8
+                }).addTo(state.map);
+            });
+
+            showStatus(`GPXファイル読み込み完了 (${points.length}点)`);
+        }
+
+        /**
+         * Handle GPX file upload
+         */
+        function handleGPXUpload(file) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const points = parseGPX(e.target.result);
+                    renderGPXTrack(points);
+                } catch (error) {
+                    console.error('GPX parsing error:', error);
+                    showStatus('GPXファイルの読み込みに失敗しました');
+                }
             };
             reader.readAsText(file);
         }
 
-        // ファイルアップロードイベント
-        document.getElementById('gpx-file-input').addEventListener('change', function(e) {
-            handleFileUpload(e.target.files[0]);
-        });
+        // ===== Line Drawing Functions =====
 
-        // ドラッグ&ドロップイベント
-        mymap.getContainer().addEventListener('dragover', function(e) {
-            e.preventDefault(); // デフォルトの挙動を防ぐ
-        });
-        mymap.getContainer().addEventListener('drop', function(e) {
-            e.preventDefault();
-            var file = e.dataTransfer.files[0];
-            if (file && file.type === "application/gpx+xml") {
-                handleFileUpload(file);
+        /**
+         * Generate sample points along a line
+         */
+        function generateSamplePoints(lat1, lon1, lat2, lon2, interval) {
+            const totalDistance = calculateDistance(lat1, lon1, lat2, lon2);
+            const bearing = calculateBearing(lat1, lon1, lat2, lon2);
+            const numPoints = Math.ceil(totalDistance / interval);
+
+            const points = [];
+            for (let i = 0; i <= numPoints; i++) {
+                const distance = Math.min(i * interval, totalDistance);
+                const point = calculateDestination(lat1, lon1, distance, bearing);
+                points.push(point);
             }
-        });
 
-        function calculateGradients(data) {
-            var segments = [];
-            for (var i = 1; i < data.length; i++) {
-                var start = data[i-1];
-                var end = data[i];
-                var distance = getDistance(start[0], start[1], end[0], end[1]);
-                // var distance = getDistanceVincenty(start[0], start[1], end[0], end[1]);
-                // var distance = window.geodesic.Geodesic.WGS84.Inverse(start[0], start[1], end[0], end[1]).s12;
-                var elevationChange = end[2] - start[2];
-                var gradient = Math.atan(elevationChange / distance) * (180 / Math.PI);
+            return points;
+        }
+
+        /**
+         * Calculate gradients for drawn line using elevation data
+         */
+        async function calculateLineGradients(lat1, lon1, lat2, lon2) {
+            const samplePoints = generateSamplePoints(lat1, lon1, lat2, lon2, CONFIG.sampleInterval);
+
+            // Fetch elevations for all sample points
+            const elevations = await Promise.all(
+                samplePoints.map(p => getElevation(p.lat, p.lon))
+            );
+
+            // Filter out null elevations and calculate gradients
+            const segments = [];
+            for (let i = 1; i < samplePoints.length; i++) {
+                // Skip if either elevation is null
+                if (elevations[i - 1] === null || elevations[i] === null) {
+                    continue;
+                }
+
+                const start = samplePoints[i - 1];
+                const end = samplePoints[i];
+                const distance = CONFIG.sampleInterval;
+                const elevationChange = elevations[i] - elevations[i - 1];
+                const gradient = Math.atan(elevationChange / distance) * (180 / Math.PI);
+
                 segments.push({
-                    start: start,
-                    end: end,
-                    gradient: gradient
+                    start: [start.lat, start.lon],
+                    end: [end.lat, end.lon],
+                    gradient,
+                    elevation: {
+                        start: elevations[i - 1],
+                        end: elevations[i]
+                    }
                 });
             }
+
             return segments;
         }
 
-        function getColorForGradient(gradient) {
-            if (Math.abs(gradient) > 30) return 'red';
-            else if (Math.abs(gradient) > 15) return 'yellow';
-            else return 'green';
+        /**
+         * Render drawn line with gradient colors
+         */
+        async function renderDrawnLine(lat1, lon1, lat2, lon2) {
+            showStatus('標高データを取得中...');
+
+            try {
+                const segments = await calculateLineGradients(lat1, lon1, lat2, lon2);
+
+                // Remove temporary drawing line
+                if (state.currentDrawing) {
+                    state.map.removeLayer(state.currentDrawing);
+                    state.currentDrawing = null;
+                }
+
+                // Check if we got any valid segments
+                if (segments.length === 0) {
+                    showStatus('この地域の標高データが利用できません');
+                    state.drawingStartPoint = null;
+                    return;
+                }
+
+                // Render colored segments
+                const layers = [];
+                segments.forEach(segment => {
+                    const color = getGradientColor(segment.gradient);
+                    const line = L.polyline([segment.start, segment.end], {
+                        color,
+                        weight: 4,
+                        opacity: 0.9
+                    }).addTo(state.map);
+                    layers.push(line);
+                });
+
+                state.drawnLines.push(...layers);
+
+                // Show summary
+                const maxGradient = Math.max(...segments.map(s => Math.abs(s.gradient)));
+                showStatus(`斜度測定完了 (最大: ${maxGradient.toFixed(1)}°)`);
+            } catch (error) {
+                console.error('Line rendering error:', error);
+                showStatus('標高データの取得に失敗しました');
+            }
         }
 
-        function getDistance(lat1, lon1, lat2, lon2) {
-            var R = 6371e3; // meters
-            var φ1 = lat1 * Math.PI/180;
-            var φ2 = lat2 * Math.PI/180;
-            var Δφ = (lat2-lat1) * Math.PI/180;
-            var Δλ = (lon2-lon1) * Math.PI/180;
+        /**
+         * Handle map click in drawing mode
+         */
+        function handleMapClick(e) {
+            if (!state.drawingMode) return;
 
-            var a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
-                    Math.cos(φ1) * Math.cos(φ2) *
-                    Math.sin(Δλ/2) * Math.sin(Δλ/2);
-            var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            const zoom = state.map.getZoom();
+            if (zoom < CONFIG.minZoomForDrawing || zoom > CONFIG.maxZoomForDrawing) {
+                showStatus(`ズームレベル ${CONFIG.minZoomForDrawing}-${CONFIG.maxZoomForDrawing} で使用してください`);
+                return;
+            }
 
-            return R * c; // in meters
+            if (!state.drawingStartPoint) {
+                // Start drawing
+                state.drawingStartPoint = e.latlng;
+                showStatus('終点をクリックしてください');
+            } else {
+                // Finish drawing
+                const distance = calculateDistance(
+                    state.drawingStartPoint.lat,
+                    state.drawingStartPoint.lng,
+                    e.latlng.lat,
+                    e.latlng.lng
+                );
+
+                if (distance > CONFIG.maxDrawingDistance) {
+                    showStatus(`線の長さは${CONFIG.maxDrawingDistance}m以下にしてください`);
+                    if (state.currentDrawing) {
+                        state.map.removeLayer(state.currentDrawing);
+                        state.currentDrawing = null;
+                    }
+                    state.drawingStartPoint = null;
+                    return;
+                }
+
+                renderDrawnLine(
+                    state.drawingStartPoint.lat,
+                    state.drawingStartPoint.lng,
+                    e.latlng.lat,
+                    e.latlng.lng
+                );
+
+                state.drawingStartPoint = null;
+            }
         }
 
-        function getDistanceVincenty(lat1, lon1, lat2, lon2) {
-            var a = 6378137; // 地球の長半径 (meters)
-            var f = 1 / 298.257223563; // 地球の扁平率 (WGS-84)
-            var b = (1 - f) * a;
-            var L = (lon2 - lon1) * Math.PI / 180;
+        /**
+         * Handle mouse move in drawing mode
+         */
+        function handleMapMouseMove(e) {
+            if (!state.drawingMode || !state.drawingStartPoint) return;
 
-            var U1 = Math.atan((1 - f) * Math.tan(lat1 * Math.PI / 180));
-            var U2 = Math.atan((1 - f) * Math.tan(lat2 * Math.PI / 180));
+            // Update temporary line
+            if (state.currentDrawing) {
+                state.map.removeLayer(state.currentDrawing);
+            }
 
-            var sinU1 = Math.sin(U1), cosU1 = Math.cos(U1);
-            var sinU2 = Math.sin(U2), cosU2 = Math.cos(U2);
-
-            var lambda = L, lambdaP, iterLimit = 100;
-            var sinLambda, cosLambda, sinSigma, cosSigma, sigma, sinAlpha, cosSqAlpha, cos2SigmaM, C;
-            do {
-                sinLambda = Math.sin(lambda);
-                cosLambda = Math.cos(lambda);
-                sinSigma = Math.sqrt((cosU2 * sinLambda) * (cosU2 * sinLambda) + 
-                                    (cosU1 * sinU2 - sinU1 * cosU2 * cosLambda) * 
-                                    (cosU1 * sinU2 - sinU1 * cosU2 * cosLambda));
-                if (sinSigma == 0) return 0; // 同じ点
-
-                cosSigma = sinU1 * sinU2 + cosU1 * cosU2 * cosLambda;
-                sigma = Math.atan2(sinSigma, cosSigma);
-                sinAlpha = cosU1 * cosU2 * sinLambda / sinSigma;
-                cosSqAlpha = 1 - sinAlpha * sinAlpha;
-                cos2SigmaM = cosSigma - 2 * sinU1 * sinU2 / cosSqAlpha;
-                if (isNaN(cos2SigmaM)) cos2SigmaM = 0; // 赤道上の場合
-                C = f / 16 * cosSqAlpha * (4 + f * (4 - 3 * cosSqAlpha));
-                lambdaP = lambda;
-                lambda = L + (1 - C) * f * sinAlpha *
-                        (sigma + C * sinSigma * (cos2SigmaM + C * cosSigma * (-1 + 2 * cos2SigmaM * cos2SigmaM)));
-            } while (Math.abs(lambda - lambdaP) > 1e-12 && --iterLimit > 0);
-
-            if (iterLimit == 0) return NaN; // 収束しない場合
-
-            var uSq = cosSqAlpha * (a * a - b * b) / (b * b);
-            var A = 1 + uSq / 16384 * (4096 + uSq * (-768 + uSq * (320 - 175 * uSq)));
-            var B = uSq / 1024 * (256 + uSq * (-128 + uSq * (74 - 47 * uSq)));
-            var deltaSigma = B * sinSigma * (cos2SigmaM + B / 4 * (cosSigma * (-1 + 2 * cos2SigmaM * cos2SigmaM) - 
-                            B / 6 * cos2SigmaM * (-3 + 4 * sinSigma * sinSigma) * (-3 + 4 * cos2SigmaM * cos2SigmaM)));
-
-            var s = b * A * (sigma - deltaSigma);
-
-            return s; // 最終的な距離 (meters)
+            state.currentDrawing = L.polyline(
+                [[state.drawingStartPoint.lat, state.drawingStartPoint.lng], [e.latlng.lat, e.latlng.lng]],
+                {
+                    color: '#0000ff',
+                    weight: 2,
+                    opacity: 0.5,
+                    dashArray: '5, 10'
+                }
+            ).addTo(state.map);
         }
+
+        /**
+         * Toggle drawing mode
+         */
+        function toggleDrawingMode(enabled) {
+            state.drawingMode = enabled;
+
+            if (enabled) {
+                state.map.getContainer().classList.add('drawing-mode-active');
+                state.map.dragging.disable();
+                showStatus('線の始点をクリックしてください');
+            } else {
+                state.map.getContainer().classList.remove('drawing-mode-active');
+                state.map.dragging.enable();
+
+                // Clean up
+                if (state.currentDrawing) {
+                    state.map.removeLayer(state.currentDrawing);
+                    state.currentDrawing = null;
+                }
+                state.drawingStartPoint = null;
+            }
+        }
+
+        // ===== Initialization =====
+
+        function initMap() {
+            const { coords, zoom } = getMapParams();
+
+            // Create map
+            state.map = L.map('map').setView(coords, zoom);
+
+            // Add tile layers
+            const stdLayer = L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png', {
+                attribution: ''
+            });
+
+            const hillshadeLayer = L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/hillshademap/{z}/{x}/{y}.png', {
+                attribution: ''
+            });
+
+            stdLayer.addTo(state.map);
+
+            // Add controls
+            L.control.layers({
+                '地理院地図': stdLayer,
+                '陰影起伏図': hillshadeLayer
+            }).addTo(state.map);
+
+            L.control.scale({ imperial: false }).addTo(state.map);
+
+            // Custom attribution
+            const customAttribution = L.control({ position: 'topright' });
+            customAttribution.onAdd = function() {
+                const div = L.DomUtil.create('div', 'custom-attribution');
+                div.innerHTML = '地図データ &copy; <a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank">国土地理院</a>';
+                return div;
+            };
+            customAttribution.addTo(state.map);
+
+            // Event listeners
+            state.map.on('click', handleMapClick);
+            state.map.on('mousemove', handleMapMouseMove);
+
+            // Drag and drop for GPX
+            const mapContainer = state.map.getContainer();
+            mapContainer.addEventListener('dragover', (e) => {
+                e.preventDefault();
+            });
+            mapContainer.addEventListener('drop', (e) => {
+                e.preventDefault();
+                const file = e.dataTransfer.files[0];
+                if (file && file.name.endsWith('.gpx')) {
+                    handleGPXUpload(file);
+                }
+            });
+        }
+
+        function initControls() {
+            // GPX file input
+            document.getElementById('gpxFileInput').addEventListener('change', (e) => {
+                if (e.target.files[0]) {
+                    handleGPXUpload(e.target.files[0]);
+                }
+            });
+
+            // Drawing mode checkboxes (sync both)
+            const checkbox1 = document.getElementById('drawingModeCheckbox');
+            const checkbox2 = document.getElementById('drawingModeCheckbox2');
+
+            checkbox1.addEventListener('change', (e) => {
+                checkbox2.checked = e.target.checked;
+                toggleDrawingMode(e.target.checked);
+            });
+
+            checkbox2.addEventListener('change', (e) => {
+                checkbox1.checked = e.target.checked;
+                toggleDrawingMode(e.target.checked);
+            });
+        }
+
+        // ===== Responsive Control Panel =====
+
+        /**
+         * Check if control panel should be in compact mode
+         */
+        function checkPanelSize() {
+            const panel = document.querySelector('.control-panel');
+            if (!panel) return;
+
+            const panelRect = panel.getBoundingClientRect();
+            const viewportWidth = window.innerWidth;
+            const viewportHeight = window.innerHeight;
+
+            const widthRatio = panelRect.width / viewportWidth;
+            const heightRatio = panelRect.height / viewportHeight;
+
+            // Apply compact mode if panel exceeds 50% width AND 25% height
+            if (widthRatio > 0.5 && heightRatio > 0.25) {
+                panel.classList.add('compact');
+            } else {
+                panel.classList.remove('compact');
+            }
+        }
+
+        /**
+         * Initialize responsive behavior
+         */
+        function initResponsive() {
+            // Check on load
+            checkPanelSize();
+
+            // Check on resize
+            let resizeTimeout;
+            window.addEventListener('resize', () => {
+                clearTimeout(resizeTimeout);
+                resizeTimeout = setTimeout(checkPanelSize, 100);
+            });
+
+            // Check after content changes (MutationObserver for dynamic content)
+            const panel = document.querySelector('.control-panel');
+            if (panel) {
+                const observer = new MutationObserver(() => {
+                    checkPanelSize();
+                });
+                observer.observe(panel, {
+                    childList: true,
+                    subtree: true,
+                    characterData: true
+                });
+            }
+        }
+
+        // Initialize on load
+        window.addEventListener('load', () => {
+            initMap();
+            initControls();
+            initResponsive();
+        });
     </script>
 </body>
 </html>
