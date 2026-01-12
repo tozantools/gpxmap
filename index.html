@@ -97,11 +97,27 @@
             font-size: 11px;
             color: #555;
             margin: 0;
+            transition: all 0.2s ease;
+        }
+
+        .drawing-control-compact label.enabled {
+            color: #000;
+            font-weight: bold;
+        }
+
+        .drawing-control-compact label.disabled {
+            color: #bbb;
+            cursor: not-allowed;
         }
 
         .drawing-control-compact input[type="checkbox"] {
             margin-right: 4px;
             cursor: pointer;
+        }
+
+        .drawing-control-compact input[type="checkbox"]:disabled {
+            cursor: not-allowed;
+            opacity: 0.5;
         }
 
         .control-group {
@@ -118,6 +134,17 @@
             cursor: pointer;
             font-size: 13px;
             color: #555;
+            transition: all 0.2s ease;
+        }
+
+        .control-group label.enabled {
+            color: #000;
+            font-weight: bold;
+        }
+
+        .control-group label.disabled {
+            color: #bbb;
+            cursor: not-allowed;
         }
 
         .control-panel.compact .control-group label {
@@ -127,6 +154,11 @@
         .control-group input[type="checkbox"] {
             margin-right: 8px;
             cursor: pointer;
+        }
+
+        .control-group input[type="checkbox"]:disabled {
+            cursor: not-allowed;
+            opacity: 0.5;
         }
 
         .control-panel.compact .control-group input[type="checkbox"] {
@@ -439,6 +471,8 @@
             const zoom = state.map.getZoom();
             const checkbox1 = document.getElementById('drawingModeCheckbox');
             const checkbox2 = document.getElementById('drawingModeCheckbox2');
+            const label1 = checkbox1.parentElement;
+            const label2 = checkbox2.parentElement;
 
             const isValidZoom = zoom >= CONFIG.minZoomForDrawing && zoom <= CONFIG.maxZoomForDrawing;
 
@@ -453,10 +487,22 @@
                 // Disable checkboxes
                 checkbox1.disabled = true;
                 checkbox2.disabled = true;
+
+                // Update label styles to disabled
+                label1.classList.remove('enabled');
+                label1.classList.add('disabled');
+                label2.classList.remove('enabled');
+                label2.classList.add('disabled');
             } else {
                 // Enable checkboxes
                 checkbox1.disabled = false;
                 checkbox2.disabled = false;
+
+                // Update label styles to enabled
+                label1.classList.remove('disabled');
+                label1.classList.add('enabled');
+                label2.classList.remove('disabled');
+                label2.classList.add('enabled');
             }
         }
 
