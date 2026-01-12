@@ -416,6 +416,50 @@
             }, duration);
         }
 
+        /**
+         * Update URL with current map state
+         */
+        function updateURL() {
+            if (!state.map) return;
+
+            const center = state.map.getCenter();
+            const zoom = state.map.getZoom();
+            const url = new URL(window.location);
+            url.searchParams.set('c', `${center.lat.toFixed(4)},${center.lng.toFixed(4)}`);
+            url.searchParams.set('z', zoom);
+            window.history.replaceState({}, '', url);
+        }
+
+        /**
+         * Check if current zoom level supports drawing mode
+         */
+        function checkDrawingModeAvailability() {
+            if (!state.map) return;
+
+            const zoom = state.map.getZoom();
+            const checkbox1 = document.getElementById('drawingModeCheckbox');
+            const checkbox2 = document.getElementById('drawingModeCheckbox2');
+
+            const isValidZoom = zoom >= CONFIG.minZoomForDrawing && zoom <= CONFIG.maxZoomForDrawing;
+
+            if (!isValidZoom) {
+                // Disable drawing mode if currently active
+                if (state.drawingMode) {
+                    checkbox1.checked = false;
+                    checkbox2.checked = false;
+                    toggleDrawingMode(false);
+                }
+
+                // Disable checkboxes
+                checkbox1.disabled = true;
+                checkbox2.disabled = true;
+            } else {
+                // Enable checkboxes
+                checkbox1.disabled = false;
+                checkbox2.disabled = false;
+            }
+        }
+
         // ===== Elevation Data Functions =====
 
         /**
@@ -920,6 +964,11 @@
             // Event listeners
             state.map.on('click', handleMapClick);
             state.map.on('mousemove', handleMapMouseMove);
+            state.map.on('zoomend', () => {
+                updateURL();
+                checkDrawingModeAvailability();
+            });
+            state.map.on('moveend', updateURL);
 
             // Drag and drop for GPX
             const mapContainer = state.map.getContainer();
@@ -948,14 +997,35 @@
             const checkbox2 = document.getElementById('drawingModeCheckbox2');
 
             checkbox1.addEventListener('change', (e) => {
+                const zoom = state.map.getZoom();
+                const isValidZoom = zoom >= CONFIG.minZoomForDrawing && zoom <= CONFIG.maxZoomForDrawing;
+
+                if (e.target.checked && !isValidZoom) {
+                    e.target.checked = false;
+                    showStatus(`ズームレベル ${CONFIG.minZoomForDrawing}-${CONFIG.maxZoomForDrawing} で使用してください (現在: ${zoom})`);
+                    return;
+                }
+
                 checkbox2.checked = e.target.checked;
                 toggleDrawingMode(e.target.checked);
             });
 
             checkbox2.addEventListener('change', (e) => {
+                const zoom = state.map.getZoom();
+                const isValidZoom = zoom >= CONFIG.minZoomForDrawing && zoom <= CONFIG.maxZoomForDrawing;
+
+                if (e.target.checked && !isValidZoom) {
+                    e.target.checked = false;
+                    showStatus(`ズームレベル ${CONFIG.minZoomForDrawing}-${CONFIG.maxZoomForDrawing} で使用してください (現在: ${zoom})`);
+                    return;
+                }
+
                 checkbox1.checked = e.target.checked;
                 toggleDrawingMode(e.target.checked);
             });
+
+            // Check initial drawing mode availability
+            checkDrawingModeAvailability();
         }
 
         // ===== Responsive Control Panel =====
